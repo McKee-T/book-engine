@@ -1,11 +1,11 @@
 const { gql } = require('apollo-server-express');
 
+// Updated Type Definitions
 const typeDefs = gql`
   type User {
     _id: ID
     username: String
     email: String
-    password: String
     savedBooks: [Book]
     bookCount: Int
   }
@@ -26,6 +26,7 @@ const typeDefs = gql`
 
   type Query {
     me: User
+    searchBooks(query: String!): [Book] # Added query for searching books
   }
 
   type Mutation {
@@ -47,20 +48,27 @@ const typeDefs = gql`
 
 const { User } = require('../models');
 const { signToken } = require('../utils/auth');
+// Import a function to search books (you'll need to implement this)
+const { searchBooksApi } = require('./utils/searchBooks');
 
+// Updated Resolvers
 const resolvers = {
   Query: {
-    // Query to return the logged-in user's data
     me: async (_, args, context) => {
       if (context.user) {
         return await User.findOne({ _id: context.user._id }).populate('savedBooks');
       }
       throw new Error('You need to be logged in!');
     },
+
+    // Resolver for searching books using an external API
+    searchBooks: async (_, { query }) => {
+      // Call the searchBooksApi function and pass the query
+      return await searchBooksApi(query);
+    },
   },
 
   Mutation: {
-    // Mutation for user login
     login: async (_, { email, password }) => {
       const user = await User.findOne({ email });
 
@@ -78,14 +86,12 @@ const resolvers = {
       return { token, user };
     },
 
-    // Mutation to create a new user
     createUser: async (_, { username, email, password }) => {
       const user = await User.create({ username, email, password });
       const token = signToken(user);
       return { token, user };
     },
 
-    // Mutation to save a book to a user's savedBooks
     saveBook: async (_, { bookData }, context) => {
       if (context.user) {
         const updatedUser = await User.findOneAndUpdate(
@@ -99,7 +105,6 @@ const resolvers = {
       throw new Error('You need to be logged in!');
     },
 
-    // Mutation to delete a book from a user's savedBooks
     deleteBook: async (_, { bookId }, context) => {
       if (context.user) {
         const updatedUser = await User.findOneAndUpdate(
@@ -114,6 +119,5 @@ const resolvers = {
     },
   },
 };
-
 
 module.exports = { typeDefs, resolvers };

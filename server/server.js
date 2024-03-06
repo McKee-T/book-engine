@@ -2,7 +2,8 @@ const express = require('express');
 const path = require('path');
 const { ApolloServer } = require('apollo-server-express');
 const db = require('./config/connection');
-const { typeDefs, resolvers } = require('./schema'); // You'll create this file next
+const { typeDefs, resolvers } = require('./schema'); 
+const { authMiddleware } = require('./utils/auth'); // Assuming this is your authentication middleware
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -18,7 +19,11 @@ async function startApolloServer(typeDefs, resolvers) {
   const server = new ApolloServer({
     typeDefs,
     resolvers,
-    context: ({ req }) => ({ req })
+    context: async ({ req }) => {
+      // Use your authentication middleware to extract user info from the token
+      const auth = await authMiddleware(req);
+      return { user: auth.user }; // Attach the user to the context
+    }
   });
 
   await server.start();
