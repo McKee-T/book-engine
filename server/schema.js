@@ -46,8 +46,8 @@ const typeDefs = gql`
   }
 `;
 
-const { User } = require('../models');
-const { signToken } = require('../utils/auth');
+const { User } = require('./models');
+const { signToken } = require('./utils/auth');
 // Import a function to search books (you'll need to implement this)
 const { searchBooksApi } = require('./utils/searchBooks');
 
@@ -70,26 +70,44 @@ const resolvers = {
 
   Mutation: {
     login: async (_, { email, password }) => {
-      const user = await User.findOne({ email });
+      try {
+        const user = await User.findOne({ email });
 
-      if (!user) {
-        throw new Error("Can't find this user");
+        if (!user) {
+          throw new Error("Can't find this user");
+        }
+
+        const correctPw = await user.isCorrectPassword(password);
+
+        if (!correctPw) {
+          throw new Error('Wrong password!');
+        }
+
+        const token = signToken(user);
+        return { token, user };
+      } catch (error) {
+        console.error('Login error:', error);
+        throw new Error('Login failed. Please try again.');
       }
-
-      const correctPw = await user.isCorrectPassword(password);
-
-      if (!correctPw) {
-        throw new Error('Wrong password!');
-      }
-
-      const token = signToken(user);
-      return { token, user };
     },
 
     createUser: async (_, { username, email, password }) => {
-      const user = await User.create({ username, email, password });
-      const token = signToken(user);
-      return { token, user };
+      try {
+        // Check if user already exists with the same email
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+          throw new Error('User with this email already exists.');
+        }
+
+        const user = await User.create({ username, email, password });
+        const token = signToken(user);
+        return { token, user };
+      } catch (error) {
+        console.error('Create user error:', error);
+        // You can further refine error handling here based on the error type
+        // For example, handling Mongoose validation errors specifically
+        throw new Error('Failed to create user. Please try again.');
+      }
     },
 
     saveBook: async (_, { bookData }, context) => {
